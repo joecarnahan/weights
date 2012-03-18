@@ -1,0 +1,3 @@
+A quick program that I wrote to calculate the possible combinations that I could make with my existing barbell weight set.
+
+If you have a normal set of plates (2.5, 5, 10, 25, 35, and 45), it's easy to pick numbers of weights so that you're adding a reasonable additional amount of weight with each set.  However, with my kludged-together weight set that I got off of Craigslist, I found it wasn't so easy to combine metric and imperial units while evaluating combinatorial expressions in my head.  So, I wrote a program to evaluate all the possiblities and sort them for me.
