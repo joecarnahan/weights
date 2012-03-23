@@ -56,8 +56,9 @@ class Weights(plates: Traversable[String]) {
     (Vector[Configuration], Double) => Vector[Configuration] =
     ((v: Vector[Configuration], d: Double) => v ++ v.map(_.add(d)))
 
-  private def combinations: Vector[Configuration] =
-    plateWeights.foldLeft(Vector(new Configuration(Nil)))(addConfiguration)
+  private def combinations: IndexedSeq[Configuration] =
+    (plateWeights.foldLeft(Vector(new Configuration(Nil)))(addConfiguration)
+      .toSet.toIndexedSeq.sorted(Configuration))
 
   def calculatePossibilities: String = 
     combinations.mkString(System.getProperty("line.separator"))
