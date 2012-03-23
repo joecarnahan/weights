@@ -16,6 +16,7 @@ private class Configuration(plates: List[Double]) {
 
   def bar: Double = 45.0
   def weight: Double = bar + (2.0 * plates.sum)
+  def numPlates: Int = plates.length
 
   def add(plate: Double): Configuration = 
     new Configuration(plate :: plates)
@@ -31,12 +32,15 @@ private class Configuration(plates: List[Double]) {
 }
 
 /**
- * Ordering for bar configurations, which sorts by weight.
+ * Ordering for bar configurations, which sorts by weight and breaks dies by
+ * the number of plates.
  */
 private object Configuration extends Ordering[Configuration] {
   def compare(first: Configuration, second: Configuration): Int =
-    return first.weight.compareTo(second.weight)
-    // TODO Break ties by number of plates
+    if (first.weight == second.weight)
+      return first.numPlates.compareTo(second.numPlates)
+    else
+      return first.weight.compareTo(second.weight)
 }
 
 /**
