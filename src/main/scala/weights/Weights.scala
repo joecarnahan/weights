@@ -7,6 +7,39 @@
 package weights
 
 /**
+ * Represents a single bar configuration.
+ *
+ * @param plates
+ *          The set of weights on the bar
+ */
+private class Configuration(plates: List[Double]) {
+
+  def bar: Double = 45.0
+  def weight: Double = bar + (2.0 * plates.sum)
+
+  def add(plate: Double): Configuration = 
+    new Configuration(plate :: plates)
+
+  override def toString: String = weight.toString + " (" + 
+    plates.toIndexedSeq.sorted.mkString(", ") + ")"
+
+  // Bar equality is determined by 
+  override def hashCode: Int = weight.hashCode
+  override def equals(that: Any): Boolean = 
+    return (that.isInstanceOf[Configuration] &&
+            that.asInstanceOf[Configuration].weight == weight)
+}
+
+/**
+ * Ordering for bar configurations, which sorts by weight.
+ */
+private object Configuration extends Ordering[Configuration] {
+  def compare(first: Configuration, second: Configuration): Int =
+    return first.weight.compareTo(second.weight)
+    // TODO Break ties by number of plates
+}
+
+/**
  * Represents a set of weights.
  *
  * @param plates
@@ -17,20 +50,16 @@ package weights
  */
 class Weights(plates: Traversable[String]) {
 
-  def plateWeights: Traversable[Double] = plates.map(_.toDouble * 2)
+  private def plateWeights: Traversable[Double] = plates.map(_.toDouble)
 
-  def bar: Double = 45.0
+  private def addConfiguration: 
+    (Vector[Configuration], Double) => Vector[Configuration] =
+    ((v: Vector[Configuration], d: Double) => v ++ v.map(_.add(d)))
 
-  def addCombination: (Vector[Vector[Double]], Double) => Vector[Vector[Double]] =
-    ((v: Vector[Vector[Double]], d: Double) => v ++ v.map(_ :+ d))
-
-  def combinations: Vector[Vector[Double]] = 
-    plateWeights.foldLeft(Vector(Vector[Double]()))(addCombination)
-
-  def possibleWeights: Seq[Double] = 
-    combinations.map(_.sum + bar).toSet.toSeq.sorted
+  private def combinations: Vector[Configuration] =
+    plateWeights.foldLeft(Vector(new Configuration(Nil)))(addConfiguration)
 
   def calculatePossibilities: String = 
-    possibleWeights.mkString(System.getProperty("line.separator"))
+    combinations.mkString(System.getProperty("line.separator"))
 
 }
