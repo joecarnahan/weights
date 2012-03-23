@@ -24,7 +24,7 @@ private class Configuration(plates: List[Double]) {
   override def toString: String = weight.toString + " (" + 
     plates.toIndexedSeq.sorted.mkString(", ") + ")"
 
-  // Bar equality is determined by 
+  // Bar equality is determined by weight
   override def hashCode: Int = weight.hashCode
   override def equals(that: Any): Boolean = 
     return (that.isInstanceOf[Configuration] &&
@@ -33,7 +33,10 @@ private class Configuration(plates: List[Double]) {
 
 /**
  * Ordering for bar configurations, which sorts by weight and breaks dies by
- * the number of plates.
+ * the number of plates.  Note that this is conspicuously inconsistent with
+ * hashCode() and equals().
+ *
+ * Also includes an apply() method for easier configuration construction.
  */
 private object Configuration extends Ordering[Configuration] {
   def compare(first: Configuration, second: Configuration): Int =
@@ -41,6 +44,8 @@ private object Configuration extends Ordering[Configuration] {
       return first.numPlates.compareTo(second.numPlates)
     else
       return first.weight.compareTo(second.weight)
+
+  def apply(plates: List[Double]) = new Configuration(plates)
 }
 
 /**
@@ -60,11 +65,15 @@ class Weights(plates: Traversable[String]) {
     (Vector[Configuration], Double) => Vector[Configuration] =
     ((v: Vector[Configuration], d: Double) => v ++ v.map(_.add(d)))
 
-  private def combinations: IndexedSeq[Configuration] =
-    (plateWeights.foldLeft(Vector(new Configuration(Nil)))(addConfiguration)
-      .toSet.toIndexedSeq.sorted(Configuration))
+  private def configurations: Traversable[Configuration] =
+    plateWeights.foldLeft(Vector(Configuration(Nil)))(addConfiguration)
+
+  private def uniqueConfigurations: Traversable[Configuration] =
+    configurations.groupBy(_.weight).
+      map(_._2.toIndexedSeq.sorted(Configuration).head).toIndexedSeq.
+      sorted(Configuration)
 
   def calculatePossibilities: String = 
-    combinations.mkString(System.getProperty("line.separator"))
+    uniqueConfigurations.mkString(System.getProperty("line.separator"))
 
 }
