@@ -6,6 +6,9 @@
 
 package weights
 
+import scala.math.abs
+import scala.math.abs
+
 /**
  * Represents a single bar configuration.
  *
@@ -53,7 +56,6 @@ private object Configuration extends Ordering[Configuration] {
  */
 private object Weights {
   val minStep = 2.0
-  val maxStep = 4.0
 }
 
 /**
@@ -81,6 +83,11 @@ class Weights(plates: Traversable[String]) {
       map(_._2.toIndexedSeq.sorted(Configuration).head).toIndexedSeq.
       sorted(Configuration)
 
+  /**
+   * Returns a set of unique weight configurations that have the minimal number
+   * of plates and whose weights are all at least <code>Weights.minStep</code>
+   * apart.
+   */
   private def wellSpacedConfigurations: IndexedSeq[Configuration] = {
 
     /**
@@ -89,9 +96,12 @@ class Weights(plates: Traversable[String]) {
      */
     case class Spacing(config: Configuration,  // weight configuration
                        index: Int,             // index in original list
-                       before: Double,         // differences between this
-                       after: Double,          //   weight and the nearest
-                                               //   included weights
+                       before: Double,         // Difference between this
+                                               //   weight and the one after it
+                       after: Double,          // Difference between this
+                                               //   weight and the one after it
+                       gap: Double,            // Gap that would exist if this
+                                               //   weight were not included
                        included: Boolean,      // true iff still included
                        changed: Boolean)       // true iff spacings were
                                                //   modified in the latest pass
@@ -101,7 +111,7 @@ class Weights(plates: Traversable[String]) {
      * builds a Spacing object with the default initial values.
      */
     def buildSpacing(configAndIndex: (Configuration, Int)): Spacing =
-      Spacing(configAndIndex._1, configAndIndex._2, 0.0, 0.0, true, false)
+      Spacing(configAndIndex._1, configAndIndex._2, 0.0, 0.0, 0.0, true, false)
 
     /**
      * Given a sequence of weight configurations, builds the initial sequence
@@ -111,19 +121,81 @@ class Weights(plates: Traversable[String]) {
         IndexedSeq[Spacing] = configurations.zipWithIndex.map(buildSpacing)
 
     /**
-     * Returns a new list of configurations with all of the inter-weight
-     * spacings correctly computed.  Any configurations that are not "included"
-     * are skipped when determining inter-weight spacings.
+     * Given a function that determines which indices to examine, start from
+     * the current weight and return the absolute difference between it and
+     * the first included weight that is returned by the given function.
+     * Note that if the given function returns None, then the distance is
+     * considered to be infinite.
      */
-    def updateSpacings(spacings: IndexedSeq[Spacing]): IndexedSeq[Spacing] =
-      sys.error("TODO: Implement this")
+    def updateSpacing(spacings: IndexedSeq[Spacing], 
+                      thisSpacing: Spacing,
+                      moveIndex: Int => Option[Int]): Double = {
+      def updateSpacingRec(currIndex: Int): Double =
+        moveIndex(currIndex) match {
+          case None => Double.PositiveInfinity
+          case Some(i) =>
+            if (spacings(i).included)
+              abs(spacings(i).config.weight - thisSpacing.config.weight)
+            else
+              updateSpacingRec(i)
+        }
+      updateSpacingRec(thisSpacing.index)
+    }
 
     /**
-     * Returns a new list of configurations with all of the unnecessary weight
-     * combinations marked as no longer included.
+     * Given a spacing and the sequence of spacings, return a new spacing with
+     * the "before," "after", and "gap" fields correctly populated.
+     * Non-included weights ignored when calculating spacings and are not
+     * modified by this method.
+     * <p>
+     * This could probably be improved by using the fact that each included
+     * weight's "before" is the same as the previous included weight's "after",
+     * but it doesn't seem like it's worth the trouble right now.
      */
-    def updateIncluded(spacings: IndexedSeq[Spacing]): IndexedSeq[Spacing] =
-      sys.error("TODO: Implement this")
+    def updateSpacings(spacings: IndexedSeq[Spacing], 
+                       thisSpacing: Spacing): Spacing =
+      if (thisSpacing.included) {
+        val newBefore = updateSpacing(spacings, thisSpacing, 
+            {(i: Int) => if (i == 0) None else Some(i - 1)})
+        val newAfter = updateSpacing(spacings, thisSpacing, 
+            {(i: Int) => if (i == (spacings.size - 1)) None else Some(i + 1)})
+        Spacing(thisSpacing.config, thisSpacing.index,
+                newBefore, newAfter, newBefore + newAfter,
+                thisSpacing.included,
+                (thisSpacing.before != newBefore) || 
+                  (thisSpacing.after != newAfter))
+      }
+      else
+        thisSpacing
+              
+    /**
+     * Returns a new list of configurations that may or may not contain some
+     * additional combinations marked as no longer included.
+     * <p>
+     * Specifically, this uses a greedy algorithm.  If any weights are less
+     * than the minimum distance apart, this removes the weight that will
+     * leave the smallest gap of any weight that can be removed.
+     */
+    def updateIncluded(spacings: IndexedSeq[Spacing]): IndexedSeq[Spacing] = {
+      
+      /**
+       * Orders spacings by the sizes of the gaps they would leave.
+       */
+      object OrderByGap extends Ordering[Spacing] {
+        def compare(first: Spacing, second: Spacing): Int =
+          first.gap.compare(second.gap)
+      }
+
+      if (spacings.filter(_.included).exists(_.before < Weights.minStep)) {
+        val smallestGap = spacings.filter(_.included).min(OrderByGap)
+        spacings.updated(smallestGap.index,
+          Spacing(smallestGap.config, smallestGap.index,
+                  smallestGap.before, smallestGap.after, smallestGap.gap,
+                  false, smallestGap.changed))
+      }
+      else
+        spacings
+    }
     
     /**
      * Returns a new list of configurations with all of the "changed" flags
@@ -131,7 +203,7 @@ class Weights(plates: Traversable[String]) {
      */
     def clearChanged(spacings: IndexedSeq[Spacing]): IndexedSeq[Spacing] =
       spacings.map((s: Spacing) =>
-        Spacing(s.config, s.index, s.before, s.after, s.included, false))
+        Spacing(s.config, s.index, s.before, s.after, s.gap, s.included, false))
     
     /**
      * Repeatedly marks extra weight combinations as not included and updates
@@ -140,7 +212,7 @@ class Weights(plates: Traversable[String]) {
      */
     def removeExtraConfigs(spacings: IndexedSeq[Spacing]):
         IndexedSeq[Spacing] = {
-      val updated = updateIncluded(updateSpacings(spacings))
+      val updated = updateIncluded(spacings.map(updateSpacings(spacings, _)))
       if (updated.exists(_.changed))
         removeExtraConfigs(clearChanged(updated))
       else
@@ -152,6 +224,6 @@ class Weights(plates: Traversable[String]) {
   }
 
   def calculatePossibilities: String = 
-    uniqueConfigurations.mkString(System.getProperty("line.separator"))
+    wellSpacedConfigurations.mkString(System.getProperty("line.separator"))
 
 }
