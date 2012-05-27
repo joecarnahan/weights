@@ -8,6 +8,8 @@
 package weights
 
 object Main {
+  val minStep = 2.0
+
   def main(args: Array[String]) = 
-    println((new Weights(args)).calculatePossibilities)
+    println((new Weights(minStep, args)).calculatePossibilities)
 }

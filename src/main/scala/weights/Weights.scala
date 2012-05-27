@@ -52,13 +52,6 @@ private object Configuration extends Ordering[Configuration] {
 }
 
 /**
- * Constants for the Weights class.
- */
-private object Weights {
-  val minStep = 2.0
-}
-
-/**
  * Represents a set of weights.
  *
  * @param plates
@@ -67,7 +60,7 @@ private object Weights {
  *          plates of a given size, you can list the same weight size twice or
  *          three times in the list.
  */
-class Weights(plates: Traversable[String]) {
+class Weights(minStep: Double, plates: Traversable[String]) {
 
   private def plateWeights: Traversable[Double] = plates.map(_.toDouble)
 
@@ -83,7 +76,7 @@ class Weights(plates: Traversable[String]) {
 
   /**
    * Returns a set of unique weight configurations that have the minimal number
-   * of plates and whose weights are all at least <code>Weights.minStep</code>
+   * of plates and whose weights are all at least <code>minStep</code>
    * apart.
    */
   private def wellSpacedConfigurations: IndexedSeq[Configuration] = {
@@ -188,7 +181,7 @@ class Weights(plates: Traversable[String]) {
             first.gap.compare(second.gap)
       }
 
-      if (spacings.filter(_.included).exists(_.before < Weights.minStep)) {
+      if (spacings.filter(_.included).exists(_.before < minStep)) {
         val smallestGap = spacings.filter(_.included).min(OrderByGap)
         spacings.updated(smallestGap.index,
           Spacing(smallestGap.config, smallestGap.index,
