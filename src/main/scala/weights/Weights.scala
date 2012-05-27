@@ -30,8 +30,8 @@ private class Configuration(plates: List[Double]) {
   // Bar equality is determined by weight
   override def hashCode: Int = weight.hashCode
   override def equals(that: Any): Boolean = 
-    return (that.isInstanceOf[Configuration] &&
-            that.asInstanceOf[Configuration].weight == weight)
+    (that.isInstanceOf[Configuration] &&
+     that.asInstanceOf[Configuration].weight == weight)
 }
 
 /**
@@ -44,9 +44,9 @@ private class Configuration(plates: List[Double]) {
 private object Configuration extends Ordering[Configuration] {
   def compare(first: Configuration, second: Configuration): Int =
     if (first.weight == second.weight)
-      return first.numPlates.compareTo(second.numPlates)
+      first.numPlates.compareTo(second.numPlates)
     else
-      return first.weight.compareTo(second.weight)
+      first.weight.compareTo(second.weight)
 
   def apply(plates: List[Double]) = new Configuration(plates)
 }
@@ -78,10 +78,8 @@ class Weights(plates: Traversable[String]) {
   private def configurations: Traversable[Configuration] =
     plateWeights.foldLeft(Vector(Configuration(Nil)))(addConfiguration)
 
-  private def uniqueConfigurations: IndexedSeq[Configuration] =
-    configurations.groupBy(_.weight).
-      map(_._2.toIndexedSeq.sorted(Configuration).head).toIndexedSeq.
-      sorted(Configuration)
+  private def sortedConfigurations: IndexedSeq[Configuration] =
+    configurations.toIndexedSeq.sorted(Configuration)
 
   /**
    * Returns a set of unique weight configurations that have the minimal number
@@ -103,7 +101,7 @@ class Weights(plates: Traversable[String]) {
                        gap: Double,            // Gap that would exist if this
                                                //   weight were not included
                        included: Boolean,      // true iff still included
-                       changed: Boolean)       // true iff spacings were
+                       changed: Boolean)       // true iff this spacing was
                                                //   modified in the latest pass
 
     /**
@@ -162,7 +160,8 @@ class Weights(plates: Traversable[String]) {
         Spacing(thisSpacing.config, thisSpacing.index,
                 newBefore, newAfter, newBefore + newAfter,
                 thisSpacing.included,
-                (thisSpacing.before != newBefore) || 
+                thisSpacing.changed || 
+                  (thisSpacing.before != newBefore) || 
                   (thisSpacing.after != newAfter))
       }
       else
@@ -183,7 +182,10 @@ class Weights(plates: Traversable[String]) {
        */
       object OrderByGap extends Ordering[Spacing] {
         def compare(first: Spacing, second: Spacing): Int =
-          first.gap.compare(second.gap)
+          if (first.gap == second.gap)
+            first.config.numPlates.compareTo(second.config.numPlates) * -1
+          else
+            first.gap.compare(second.gap)
       }
 
       if (spacings.filter(_.included).exists(_.before < Weights.minStep)) {
@@ -191,7 +193,7 @@ class Weights(plates: Traversable[String]) {
         spacings.updated(smallestGap.index,
           Spacing(smallestGap.config, smallestGap.index,
                   smallestGap.before, smallestGap.after, smallestGap.gap,
-                  false, smallestGap.changed))
+                  false, true))
       }
       else
         spacings
@@ -210,16 +212,16 @@ class Weights(plates: Traversable[String]) {
      * the inter-weight spacings until no unnecessary weight combinations
      * remain.
      */
-    def removeExtraConfigs(spacings: IndexedSeq[Spacing]):
+    def removeExtraSpacings(spacings: IndexedSeq[Spacing]):
         IndexedSeq[Spacing] = {
       val updated = updateIncluded(spacings.map(updateSpacings(spacings, _)))
       if (updated.exists(_.changed))
-        removeExtraConfigs(clearChanged(updated))
+        removeExtraSpacings(clearChanged(updated))
       else
         updated
     } 
 
-    removeExtraConfigs(buildSpacings(uniqueConfigurations)).filter(_.included).
+    removeExtraSpacings(buildSpacings(sortedConfigurations)).filter(_.included).
         map(_.config)
   }
 
