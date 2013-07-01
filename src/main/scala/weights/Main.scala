@@ -13,7 +13,7 @@ import java.io.FileWriter
 object Main {
   val minSteps = List(1.0, 2.0, 4.0)
 
-  def main(args: Array[String]) = 
+  def main(args: Array[String]): Unit = 
     minSteps.map((minStep: Double) => {
       val filename = "steps_" + minStep.toString + ".txt"
       val writer = new BufferedWriter(new FileWriter(filename))
